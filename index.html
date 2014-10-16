@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>talkingHeads</title>
+
+<script src="http://code.createjs.com/createjs-2013.12.12.min.js"></script>
+<script src="http://code.createjs.com/movieclip-0.7.0.min.js"></script>
+<script src="talkingHeads.js"></script>
+
+<script>
+var canvas, stage, exportRoot, actorSound, backSound, queue, analyser, freqData, amp,backAmp, backAnalyser, boo=false, armRot = false;
+var songList = [{id:'sound2', src:'actorSound.mp3'},
+				{id:'sound3', src:'backgroundSound.mp3'}];
+function init() {
+	canvas = document.getElementById("canvas");
+	exportRoot = new lib.talkingHeads();
+	exportRoot.mainChar.sweat1.stop();
+	exportRoot.mainChar.sweat2.stop();
+	stage = new createjs.Stage(canvas);
+	stage.addChild(exportRoot);
+	stage.update();
+
+	createjs.Ticker.setFPS(lib.properties.fps);
+	createjs.Ticker.addEventListener("tick", tick);
+	
+	console.log(exportRoot);
+	
+	queue = new createjs.LoadQueue(false); // false will say "Don't use AJAX"
+	queue.installPlugin(createjs.Sound);
+	
+	queue.loadManifest(songList, true);
+	
+	//queue.addEventListener("fileload", handleFileLoad);
+	queue.addEventListener('complete', handleComplete);
+	//queue.addEventListener('progress', handleProgress);
+}
+function handleComplete(event) {
+	actorSound = createjs.Sound.play(songList[0].id);
+	backSound = createjs.Sound.play(songList[1].id);
+	analyser = actorSound._owner.context.createAnalyser(); // VIZ
+	analyser.smoothingTimeConstant = 0;
+	actorSound.gainNode.connect(analyser); // VIZ
+	freqData = new Uint8Array(analyser.frequencyBinCount); // VIZ
+	
+	backAnalyser = backSound._owner.context.createAnalyser(); // VIZ
+	backAnalyser.smoothingTimeConstant = 0.4;
+	backSound.gainNode.connect(backAnalyser); // VIZ
+	bfreqData = new Uint8Array(backAnalyser.frequencyBinCount); // VIZ
+}
+function tick(event){
+	
+	if(actorSound){
+		analyser.getByteFrequencyData(freqData); // VIZ
+		
+		amp = getAverageAmp(freqData);
+		
+		backAnalyser.getByteFrequencyData(bfreqData); // VIZ
+		
+		backAmp = getAverageAmp(bfreqData);
+		//console.log(backAmp);
+		
+		if(!boo){
+			exportRoot.mainChar.head.head.mouth.gotoAndStop(amp / 10);
+			exportRoot.mainChar.sweat1.stop();
+			exportRoot.mainChar.sweat2.stop();
+		}
+		if((backAmp > 50) && (amp < 50) && !boo) {
+			boo = true;
+			exportRoot.mainChar.sweat1.play();
+			exportRoot.mainChar.sweat2.play();
+			exportRoot.mainChar.head.head.mouth.gotoAndPlay(10);
+			
+			setTimeout(function(){boo = false}, 800);
+		}
+		if(amp > 30){
+			if(!armRot){
+				armRot=true;
+				createjs.Tween
+					.get(exportRoot.mainChar.arm)
+					.to({rotation:-amp}, 1000)
+					.call(
+						function(){
+							setTimeout(
+								function(){
+									createjs.Tween
+										.get(exportRoot.mainChar.arm)
+										.to({rotation:-Math.random() * 30}, 1000)
+										.call(
+											function(){armRot=false;}
+										);
+								
+								}, 500);
+							
+						}
+					);
+			}
+			
+		}
+	} else {
+		exportRoot.mainChar.head.head.mouth.gotoAndStop(0);	
+	}
+	stage.update();
+	//
+}
+function getAverageAmp(array){
+	sum = 0;
+	for(i=0; i < array.length; i++){
+		sum	+= array[i];
+	}
+	return sum / array.length;
+}
+</script>
+</head>
+
+<body onload="init();" style="background-color:#D4D4D4">
+	<canvas id="canvas" width="550" height="400" style="background-color:#FFFFFF"></canvas>
+</body>
+</html>

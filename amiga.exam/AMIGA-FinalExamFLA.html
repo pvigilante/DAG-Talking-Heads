@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>AMIGA-FinalExamFLA</title>
+
+<script src="http://code.createjs.com/createjs-2013.12.12.min.js"></script>
+<script src="http://code.createjs.com/movieclip-0.7.0.min.js"></script>
+<script src="AMIGA-FinalExamFLA.js"></script>
+
+<script>
+var canvas, stage, exportRoot, actorSound, backSound, queue, analyser, freqData, amp;
+var muteToggle;
+var isMuted = false;
+var volLevel = 1;
+var soundList = [{id:'sound2', src:'actorSound.mp3'}];
+function init() {
+	canvas = document.getElementById("canvas");
+	exportRoot = new lib.AMIGAFinalExamFLA();
+
+	stage = new createjs.Stage(canvas);
+	stage.addChild(exportRoot);
+	
+	muteToggle = exportRoot.muteMC;
+	muteToggle.stop();
+	stage.update();
+
+	createjs.Ticker.setFPS(lib.properties.fps);
+	createjs.Ticker.addEventListener("tick", tick);
+	
+	queue = new createjs.LoadQueue(false); // false will say "Don't use AJAX"
+	queue.installPlugin(createjs.Sound);
+	
+	queue.loadManifest(soundList, true);
+
+	queue.addEventListener('complete', handleComplete);
+	
+	muteToggle.addEventListener('click', onMuteClick);
+}
+function handleComplete(event) {
+	actorSound = createjs.Sound.play(soundList[0].id);
+	analyser = actorSound._owner.context.createAnalyser(); // VIZ
+	analyser.smoothingTimeConstant = 0;
+	actorSound.gainNode.connect(analyser); // VIZ
+	freqData = new Uint8Array(analyser.frequencyBinCount); // VIZ
+}
+function tick(event){
+	
+	if(actorSound){
+		analyser.getByteFrequencyData(freqData); // VIZ
+		amp = getAverageAmp(freqData);
+		exportRoot.charMC.headMC.mouthMC.gotoAndStop(amp / 10);
+	} else {
+		exportRoot.charMC.headMC.mouthMC.gotoAndStop(0);	
+	}
+	stage.update();
+}
+function getAverageAmp(array){
+	sum = 0;
+	for(i=0; i < array.length; i++){
+		sum	+= array[i];
+	}
+	return sum / array.length;
+}
+function onMuteClick(event) {
+	if(isMuted){
+		muteToggle.gotoAndStop(1);
+		actorSound.volume = volLevel;
+		isMuted = false;
+		stage.update();
+	} else {
+		muteToggle.gotoAndStop(21);
+		actorSound.volume = 0;
+		isMuted = true;		
+	}
+}
+</script>
+</head>
+
+<body onload="init();" style="background-color:#D4D4D4">
+	<canvas id="canvas" width="550" height="400" style="background-color:#FFFFFF"></canvas>
+</body>
+</html>
